@@ -22,4 +22,4 @@ jobs:
       - run: cd server; yarn
       - run: cd server; yarn test
         env:
-          CI: true
+          ENV: CI
