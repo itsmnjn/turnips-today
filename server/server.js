@@ -1,7 +1,14 @@
+require('dotenv').config()
+
 const express = require('express')
-const app = express()
-const port = 8000
 
-app.get('/', (req, res) => res.send('Hello world!'))
+const server = express()
+const port = process.env.PORT || 8000
 
-app.listen(port, () => console.log(`App listening at http://localhost:${port}`))
+const api = require('./api')
+
+server.get('/', (req, res) => res.send('Hello world!'))
+
+server.listen(port, () =>
+	console.log(`App listening at http://localhost:${port}`)
+)
