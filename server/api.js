@@ -1,5 +1,6 @@
 const snoowrap = require('snoowrap')
 const rethinkdb = require('rethinkdb')
+const websocket = require('ws')
 
 const reddit = new snoowrap({
 	userAgent: 'TurnipsToday',
@@ -9,8 +10,9 @@ const reddit = new snoowrap({
 })
 
 let monitor = null
+let wsGlobal = null
 
-const initializeDatabase = async (dbConnection) => {
+const initDatabase = async (dbConnection) => {
 	console.log('Initializing database...')
 	const initialPriceObj = {
 		title: 'initial',
@@ -20,27 +22,8 @@ const initializeDatabase = async (dbConnection) => {
 	}
 
 	rethinkdb
-		.tableCreate('nookPrices')
+		.tableCreate('nookPrices', { primaryKey: 'url' })
 		.run(dbConnection)
-		.catch(async (err) => {
-			console.log('nookPrices already exists!')
-			let isNookEmpty = await rethinkdb
-				.table('nookPrices')
-				.isEmpty()
-				.run(dbConnection)
-			if (isNookEmpty) {
-				rethinkdb
-					.table('nookPrices')
-					.insert(initialPriceObj)
-					.run(dbConnection)
-					.then((result) => {
-						console.log(result)
-					})
-					.catch((err) => {
-						throw err
-					})
-			}
-		})
 		.then((result) => {
 			rethinkdb
 				.table('nookPrices')
@@ -52,30 +35,47 @@ const initializeDatabase = async (dbConnection) => {
 				.catch((err) => {
 					throw err
 				})
+
+			rethinkdb
+				.table('nookPrices')
+				.indexCreate('datetime')
+				.run(dbConnection)
+				.catch(console.log)
+
+			rethinkdb
+				.table('nookPrices')
+				.changes()
+				.run(dbConnection)
+				.then((cursor) => {
+					cursor.each((err, row) => {
+						updateClientNewPrice(err, row, 'nook')
+						console.log('updated nook')
+					})
+				})
+				.catch((err) => {
+					throw err
+				})
+		})
+		.catch(async (err) => {
+			console.log('nookPrices already exists!')
+			rethinkdb
+				.table('nookPrices')
+				.changes()
+				.run(dbConnection)
+				.then((cursor) => {
+					cursor.each((err, row) => {
+						updateClientNewPrice(err, row, 'nook')
+						console.log('updated nook')
+					})
+				})
+				.catch((err) => {
+					throw err
+				})
 		})
 
 	rethinkdb
-		.tableCreate('daisyPrices')
+		.tableCreate('daisyPrices', { primaryKey: 'url' })
 		.run(dbConnection)
-		.catch(async (err) => {
-			console.log('daisyPrices already exists!')
-			let isDaisyEmpty = await rethinkdb
-				.table('daisyPrices')
-				.isEmpty()
-				.run(dbConnection)
-			if (isDaisyEmpty) {
-				rethinkdb
-					.table('daisyPrices')
-					.insert(initialPriceObj)
-					.run(dbConnection)
-					.then((result) => {
-						console.log(result)
-					})
-					.catch((err) => {
-						throw err
-					})
-			}
-		})
 		.then((result) => {
 			rethinkdb
 				.table('daisyPrices')
@@ -83,6 +83,42 @@ const initializeDatabase = async (dbConnection) => {
 				.run(dbConnection)
 				.then((result) => {
 					console.log(result)
+				})
+				.catch((err) => {
+					throw err
+				})
+
+			rethinkdb
+				.table('daisyPrices')
+				.indexCreate('datetime')
+				.run(dbConnection)
+				.catch(console.log)
+
+			rethinkdb
+				.table('daisyPrices')
+				.changes()
+				.run(dbConnection)
+				.then((cursor) => {
+					cursor.each((err, row) => {
+						updateClientNewPrice(err, row, 'daisy')
+						console.log('updated daisy')
+					})
+				})
+				.catch((err) => {
+					throw err
+				})
+		})
+		.catch(async (err) => {
+			console.log('daisyPrices already exists!')
+			rethinkdb
+				.table('daisyPrices')
+				.changes()
+				.run(dbConnection)
+				.then((cursor) => {
+					cursor.each((err, row) => {
+						updateClientNewPrice(err, row, 'daisy')
+						console.log('updated daisy')
+					})
 				})
 				.catch((err) => {
 					throw err
@@ -97,7 +133,7 @@ const emptyDatabase = async (dbConnection) => {
 			.tableDrop(table)
 			.run(dbConnection)
 			.then((result) => console.log(result))
-			.catch((err) => console.log(err))
+			.catch(console.log)
 	}
 }
 
@@ -108,59 +144,73 @@ const startMonitor = (dbConnection) => {
 
 		const title = listing[0].title.toLowerCase()
 		const url = listing[0].url
-		const currentDateTime = new Date(listing[0].created_utc * 1000)
+		const currentDateTime = new Date(Date.now())
 
 		if (!title.includes('[LF]')) {
 			let numbers = title.match(/\d+/g)
-			if (title.includes('nook') && numbers) {
+			if ((title.includes('nook') || title.includes('twin')) && numbers) {
 				numbers = numbers.map(Number)
 				const mostLikelyPrice = Math.max(...numbers)
 
-				const newDocument = {
-					title,
-					url,
-					price: mostLikelyPrice,
-					datetime: currentDateTime,
-				}
+				if (mostLikelyPrice > 100) {
+					const newDocument = {
+						title,
+						url,
+						price: mostLikelyPrice,
+						datetime: currentDateTime,
+					}
 
-				let latestDocument = await rethinkdb
-					.table('nookPrices')
-					.max('datetime')
-					.run(dbConnection)
-
-				if (newDocument.url !== latestDocument.url) {
 					rethinkdb
 						.table('nookPrices')
-						.insert(newDocument)
-						.run(dbConnection, (err, result) => {
-							if (err) throw err
-							console.log('Inserted new document into nookPrices', newDocument)
+						.get(url)
+						.run(dbConnection)
+						.then((result) => {
+							if (!result) {
+								rethinkdb
+									.table('nookPrices')
+									.insert(newDocument)
+									.run(dbConnection, (err, result) => {
+										if (err) throw err
+										console.log(
+											'Inserted new document into nookPrices',
+											newDocument.url
+										)
+									})
+							}
 						})
+						.catch(console.log)
 				}
-			} else if (title.includes('daisy') && numbers) {
+			} else if (title.includes('dais') && numbers) {
 				const numbers = title.match(/\d+/g).map(Number)
 				const mostLikelyPrice = Math.max(...numbers)
 
-				const newDocument = {
-					title,
-					url,
-					price: mostLikelyPrice,
-					datetime: currentDateTime,
-				}
+				if (mostLikelyPrice > 100) {
+					const newDocument = {
+						title,
+						url,
+						price: mostLikelyPrice,
+						datetime: currentDateTime,
+					}
 
-				let latestDocument = await rethinkdb
-					.table('daisyPrices')
-					.max('datetime')
-					.run(dbConnection)
-
-				if (newDocument.url !== latestDocument.url) {
 					rethinkdb
 						.table('daisyPrices')
-						.insert(newDocument)
-						.run(dbConnection, (err, result) => {
-							if (err) throw err
-							console.log('Inserted new document into daisyPrices', newDocument)
+						.get(url)
+						.run(dbConnection)
+						.then((result) => {
+							if (!result) {
+								rethinkdb
+									.table('daisyPrices')
+									.insert(newDocument)
+									.run(dbConnection, (err, result) => {
+										if (err) throw err
+										console.log(
+											'Inserted new document into daisyPrices',
+											newDocument.url
+										)
+									})
+							}
 						})
+						.catch(console.log)
 				}
 			}
 		}
@@ -171,4 +221,49 @@ const endMonitor = () => {
 	if (monitor) clearInterval(monitor)
 }
 
-module.exports = { initializeDatabase, emptyDatabase, startMonitor, endMonitor }
+const initWebSocketServer = () => {
+	const wss = new websocket.Server({ port: 8081 })
+	wss.on('connection', (ws) => {
+		wsGlobal = ws
+
+		wsGlobal.on('message', (message) => {
+			console.log(`received: ${message}`)
+		})
+	})
+}
+
+const updateClientNewPrice = (err, row, tableName) => {
+	if (err) throw err
+
+	const newSubmission = row.new_val
+
+	if (wsGlobal) {
+		console.log('sending new submission')
+		wsGlobal.send(JSON.stringify([tableName, newSubmission]))
+	} else {
+		console.log('WebSocket connection not established.')
+	}
+}
+
+const sendAllSubmissions = async (res, dbConnection, tableName) => {
+	console.log(`sending all ${tableName} submissions`)
+	rethinkdb
+		.table(tableName)
+		.orderBy({ index: rethinkdb.desc('datetime') })
+		.run(dbConnection)
+		.then((cursor) => {
+			cursor.toArray().then((submissions) => {
+				res.json(submissions)
+			})
+		})
+		.catch(console.log)
+}
+
+module.exports = {
+	initDatabase,
+	emptyDatabase,
+	startMonitor,
+	endMonitor,
+	initWebSocketServer,
+	sendAllSubmissions,
+}
