@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts'
+import { LineChart, Line, YAxis, Tooltip } from 'recharts'
 
 import { apiURI } from '../constants'
 
@@ -29,10 +29,6 @@ const PriceBoard = (props) => {
 				return response.json()
 			})
 			.then((data) => {
-				const dataWithParsedDate = data.map((submission) => {
-					let submissionWithParsedDate = submission
-					submissionWithParsedDate.datetime = submissionWithParsedDate.datetime
-				})
 				setSubmissions(data)
 
 				let tempChartData = []

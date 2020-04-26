@@ -1,6 +1,8 @@
 const snoowrap = require('snoowrap')
 const rethinkdb = require('rethinkdb')
 const websocket = require('ws')
+const webpush = require('web-push')
+const path = require('path')
 
 const reddit = new snoowrap({
 	userAgent: 'TurnipsToday',
@@ -14,6 +16,14 @@ let wsGlobal = null
 
 const initDatabase = async (dbConnection) => {
 	console.log('Initializing database...')
+
+	rethinkdb
+		.tableCreate('subscriptions')
+		.run(dbConnection)
+		.catch((err) => {
+			console.log('Subscriptions table already exists!')
+		})
+
 	const initialPriceObj = {
 		title: 'initial',
 		price: 0,
@@ -259,6 +269,157 @@ const sendAllSubmissions = async (res, dbConnection, tableName) => {
 		.catch(console.log)
 }
 
+const saveSubscriptionToDatabase = (subscription, dbConnection) => {
+	return rethinkdb
+		.table('subscriptions')
+		.insert(subscription)
+		.run(dbConnection)
+		.catch((err) => {
+			throw err
+		})
+}
+
+const isValidSubscription = (req, res) => {
+	// Check the request body has at least an endpoint.
+	console.log('Checking if valid subscription')
+	if (!req.body || !req.body.endpoint) {
+		// Not a valid subscription.
+		res.status(400)
+		res.setHeader('Content-Type', 'application/json')
+		res.send(
+			JSON.stringify({
+				error: {
+					id: 'no-endpoint',
+					message: 'Subscription must have an endpoint.',
+				},
+			})
+		)
+		return false
+	}
+	return true
+}
+
+const pushSubscription = (req, res, dbConnection) => {
+	console.log('Saving subscription to back-end')
+	if (!isValidSubscription(req, res)) {
+		console.log('Not valid subscription')
+		return
+	}
+
+	console.log('Saving subscription to database')
+	saveSubscriptionToDatabase(req.body, dbConnection)
+		.then((result) => {
+			console.log('Success saving subscription')
+			const primaryKey = result.generated_keys[0]
+			res.setHeader('Content-Type', 'application/json')
+			res.send(JSON.stringify({ primaryKey }))
+		})
+		.catch((err) => {
+			console.log('Unable to save subscription')
+			console.log(err)
+			res.status(500)
+			res.setHeader('Content-Type', 'application/json')
+			res.send(
+				JSON.stringify({
+					error: {
+						id: 'unable-to-save-subscription',
+						message:
+							'The subscription was received but we were unable to save it to our database.',
+					},
+				})
+			)
+		})
+}
+
+const pullSubscription = (req, res, dbConnection) => {
+	console.log('Pulling subscription')
+	const primaryKey = req.body.primaryKey
+	rethinkdb
+		.table('subscriptions')
+		.get(primaryKey)
+		.delete()
+		.run(dbConnection)
+		.then((result) => {
+			res.setHeader('Content-Type', 'application/json')
+			res.send(JSON.stringify({ success: true }))
+			console.log('Subscription successfully pulled')
+		})
+		.catch((err) => {
+			res.status(500)
+			res.setHeader('Content-Type', 'application/json')
+			res.send(JSON.stringify({ success: false }))
+			console.log(err)
+		})
+}
+
+const getSubscriptionsFromDatabase = (dbConnection) => {
+	return rethinkdb
+		.table('subscriptions')
+		.run(dbConnection)
+		.then((cursor) => {
+			return cursor.toArray()
+		})
+		.catch(console.log)
+}
+
+const deleteSubscriptionFromDatabase = (id, dbConnection) => {
+	return rethinkdb
+		.table('subscriptions')
+		.get(id)
+		.delete()
+		.run(dbConnection)
+		.catch((err) => {
+			throw err
+		})
+}
+
+const triggerPushMsg = (subscription, dataToSend, dbConnection) => {
+	return webpush.sendNotification(subscription, dataToSend).catch((err) => {
+		if (err.statusCode === 404 || err.statusCode === 410) {
+			console.log('Subscription has expired or is no longer valid: ', err)
+			return deleteSubscriptionFromDatabase(subscription.id, dbConnection)
+		} else {
+			throw err
+		}
+	})
+}
+
+const sendTestPush = (dbConnection) => {
+	webpush.setVapidDetails(
+		'mailto:mk7pe@virginia.edu',
+		process.env.VAPID_PUBLIC_KEY,
+		process.env.VAPID_PRIVATE_KEY
+	)
+
+	const dataToSend = {
+		title: 'TEST',
+		message: 'FUCKING FINALLY',
+	}
+
+	getSubscriptionsFromDatabase(dbConnection)
+		.then((subscriptions) => {
+			let promiseChain = Promise.resolve()
+
+			console.log('Starting subscriptions chain: ', subscriptions)
+			for (let i = 0; i < subscriptions.length; i++) {
+				const subscription = subscriptions[i]
+				promiseChain = promiseChain.then(() => {
+					return triggerPushMsg(
+						subscription,
+						JSON.stringify(dataToSend),
+						dbConnection
+					)
+				})
+			}
+
+			return promiseChain
+		})
+		.then(() => {
+			console.log('Sent push to all subscriptions')
+		})
+		.catch(console.log)
+}
+
 module.exports = {
 	initDatabase,
 	emptyDatabase,
@@ -266,4 +427,7 @@ module.exports = {
 	endMonitor,
 	initWebSocketServer,
 	sendAllSubmissions,
+	pushSubscription,
+	pullSubscription,
+	sendTestPush,
 }
