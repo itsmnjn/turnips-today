@@ -11,5 +11,9 @@ self.addEventListener('notificationclick', (event) => {
 	const clickedNotification = event.notification
 	clickedNotification.close()
 
-	event.waitUntil(clients.openWindow(clickedNotification.data.json().url))
+	const data = event.data.json()
+
+	if (data.url) {
+		event.waitUntil(clients.openWindow(data.url))
+	}
 })

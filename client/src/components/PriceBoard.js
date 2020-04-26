@@ -43,6 +43,8 @@ const PriceBoard = (props) => {
 					const messageType = jsonConverted[0]
 					const message = jsonConverted[1]
 
+					console.log('received message: ', jsonConverted)
+
 					if (messageType === 'message') {
 						console.log(message)
 					} else if (messageType === props.tableName) {

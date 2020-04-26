@@ -24,7 +24,6 @@ rethinkdb
 		}, 100)
 		setTimeout(() => {
 			api.startMonitor(dbConnection)
-			// api.sendTestPush(dbConnection)
 		}, 200)
 		// api.emptyDatabase(dbConnection)
 

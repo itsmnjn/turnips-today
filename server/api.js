@@ -58,7 +58,7 @@ const initDatabase = async (dbConnection) => {
 				.run(dbConnection)
 				.then((cursor) => {
 					cursor.each((err, row) => {
-						updateClientNewPrice(err, row, 'nook')
+						updateClientNewPrice(err, row, 'nook', dbConnection)
 						console.log('updated nook')
 					})
 				})
@@ -74,7 +74,7 @@ const initDatabase = async (dbConnection) => {
 				.run(dbConnection)
 				.then((cursor) => {
 					cursor.each((err, row) => {
-						updateClientNewPrice(err, row, 'nook')
+						updateClientNewPrice(err, row, 'nook', dbConnection)
 						console.log('updated nook')
 					})
 				})
@@ -110,7 +110,7 @@ const initDatabase = async (dbConnection) => {
 				.run(dbConnection)
 				.then((cursor) => {
 					cursor.each((err, row) => {
-						updateClientNewPrice(err, row, 'daisy')
+						updateClientNewPrice(err, row, 'daisy', dbConnection)
 						console.log('updated daisy')
 					})
 				})
@@ -126,7 +126,7 @@ const initDatabase = async (dbConnection) => {
 				.run(dbConnection)
 				.then((cursor) => {
 					cursor.each((err, row) => {
-						updateClientNewPrice(err, row, 'daisy')
+						updateClientNewPrice(err, row, 'daisy', dbConnection)
 						console.log('updated daisy')
 					})
 				})
@@ -236,27 +236,37 @@ const initWebSocketServer = () => {
 	wss.on('connection', (ws) => {
 		wsGlobal = ws
 
+		wsGlobal.send(JSON.stringify(['message', 'hi from server!']))
+
+		// setInterval(() => {
+		// 	console.log('sending hi again')
+		// 	wsGlobal.send(JSON.stringify(['message', 'hi AGAIN from server!']))
+		// }, 5000)
+
 		wsGlobal.on('message', (message) => {
-			console.log(`received: ${message}`)
+			console.log(`Received: ${message}`)
 		})
 	})
 }
 
-const updateClientNewPrice = (err, row, tableName) => {
+const updateClientNewPrice = (err, row, tableName, dbConnection) => {
 	if (err) throw err
 
 	const newSubmission = row.new_val
 
 	if (wsGlobal) {
-		console.log('sending new submission')
+		console.log('Sending new submission')
 		wsGlobal.send(JSON.stringify([tableName, newSubmission]))
 	} else {
 		console.log('WebSocket connection not established.')
 	}
+
+	console.log('Sending push notifications')
+	sendPush(newSubmission, tableName, dbConnection)
 }
 
 const sendAllSubmissions = async (res, dbConnection, tableName) => {
-	console.log(`sending all ${tableName} submissions`)
+	console.log(`Sending all ${tableName} submissions`)
 	rethinkdb
 		.table(tableName)
 		.orderBy({ index: rethinkdb.desc('datetime') })
@@ -384,7 +394,7 @@ const triggerPushMsg = (subscription, dataToSend, dbConnection) => {
 	})
 }
 
-const sendTestPush = (dbConnection) => {
+const sendPush = (submission, tableName, dbConnection) => {
 	webpush.setVapidDetails(
 		'mailto:mk7pe@virginia.edu',
 		process.env.VAPID_PUBLIC_KEY,
@@ -392,15 +402,24 @@ const sendTestPush = (dbConnection) => {
 	)
 
 	const dataToSend = {
-		title: 'TEST',
-		message: 'FUCKING FINALLY',
+		title: '',
+		message: '',
+		url: submission.url,
 	}
+
+	if (tableName === 'nook') {
+		dataToSend.title = `A new price of ${submission.price} bells from the Nook twins!`
+	} else {
+		dataToSend.title = `A new price of ${submission.price} bells from Daisy!`
+	}
+
+	dataToSend.message = 'Click me to go to the post.'
 
 	getSubscriptionsFromDatabase(dbConnection)
 		.then((subscriptions) => {
 			let promiseChain = Promise.resolve()
 
-			console.log('Starting subscriptions chain: ', subscriptions)
+			console.log('Starting subscriptions chain')
 			for (let i = 0; i < subscriptions.length; i++) {
 				const subscription = subscriptions[i]
 				promiseChain = promiseChain.then(() => {
@@ -429,5 +448,4 @@ module.exports = {
 	sendAllSubmissions,
 	pushSubscription,
 	pullSubscription,
-	sendTestPush,
 }
