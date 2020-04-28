@@ -3,6 +3,7 @@ self.addEventListener('push', (event) => {
 	event.waitUntil(
 		self.registration.showNotification(data.title, {
 			body: data.message,
+			data: data.url,
 		})
 	)
 })
@@ -11,9 +12,7 @@ self.addEventListener('notificationclick', (event) => {
 	const clickedNotification = event.notification
 	clickedNotification.close()
 
-	const data = event.data.json()
-
-	if (data.url) {
-		event.waitUntil(clients.openWindow(data.url))
+	if (clickedNotification.data) {
+		event.waitUntil(clients.openWindow(clickedNotification.data))
 	}
 })
