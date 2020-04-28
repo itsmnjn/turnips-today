@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 
 import PriceBoard from './components/PriceBoard'
-import { apiURI, wsURI } from './constants'
+import { apiURI } from './constants'
 
 const urlBase64ToUint8Array = (base64String) => {
 	var padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -60,8 +60,8 @@ const subscribeUserToPush = (setIsSubscribed) => {
 				applicationServerKey: urlBase64ToUint8Array(publicKey),
 			}
 
-			navigator.serviceWorker
-				.register('serviceWorker.js', { scope: '/' })
+			navigator.serviceWorker.register('serviceWorker.js', { scope: '/' })
+			navigator.serviceWorker.ready
 				.then(async (registration) => {
 					const subscription = await registration.pushManager.subscribe(
 						subscribeOptions
@@ -99,30 +99,13 @@ const sendSubscriptionToBackEnd = (subscription) => {
 }
 
 const App = () => {
-	const [pushAvailable, setPushAvailable] = useState(false)
 	const [isSubscribed, setIsSubscribed] = useState(
 		window.localStorage.getItem('isSubscribed') === 'true' ? true : false
 	)
 
-	const socket = new WebSocket(wsURI)
-
-	useEffect(() => {
-		socket.addEventListener('open', (event) => {
-			socket.send(`hi this is client`)
-		})
-
-		if ('serviceWorker' in navigator && 'PushManager' in window) {
-			setPushAvailable(true)
-		}
-
-		return () => {
-			socket.close()
-		}
-	}, [])
-
 	return (
 		<div>
-			{pushAvailable ? (
+			{'serviceWorker' in navigator && 'PushManager' in window ? (
 				<button
 					type="button"
 					onClick={() => {
@@ -140,9 +123,9 @@ const App = () => {
 			) : null}
 			<h1>TurnipsToday</h1>
 			<h2>Nook Prices</h2>
-			<PriceBoard tableName="nook" socket={socket} />
+			<PriceBoard tableName="nook" />
 			<h2>Daisy Prices</h2>
-			<PriceBoard tableName="daisy" socket={socket} />
+			<PriceBoard tableName="daisy" />
 		</div>
 	)
 }
