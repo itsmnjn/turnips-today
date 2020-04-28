@@ -74,7 +74,9 @@ const NookBoard = (props) => {
 				{submissions.map((submission) => (
 					<li key={submission.url}>
 						{submission.title} - {submission.price} -{' '}
-						<a href={submission.url}>URL</a>
+						<a target="_blank" rel="noopener noreferrer" href={submission.url}>
+							URL
+						</a>
 					</li>
 				))}
 			</ul>
