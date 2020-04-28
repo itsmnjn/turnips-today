@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 
-import PriceBoard from './components/PriceBoard'
+import NookBoard from './components/NookBoard'
+import DaisyBoard from './components/DaisyBoard'
 import { apiURI } from './constants'
 
 const urlBase64ToUint8Array = (base64String) => {
@@ -123,9 +124,9 @@ const App = () => {
 			) : null}
 			<h1>TurnipsToday</h1>
 			<h2>Nook Prices</h2>
-			<PriceBoard tableName="nook" />
+			<NookBoard />
 			<h2>Daisy Prices</h2>
-			<PriceBoard tableName="daisy" />
+			<DaisyBoard />
 		</div>
 	)
 }

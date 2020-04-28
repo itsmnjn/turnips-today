@@ -152,14 +152,24 @@ const startMonitor = (dbConnection) => {
 	monitor = setInterval(async () => {
 		const newListing = await reddit.getSubreddit('acturnips').getNew()
 
-		newListing.forEach((submission) => {
+		for (let i = newListing.length - 1; i >= 0; i--) {
+			const submission = newListing[i]
+
 			const title = submission.title.toLowerCase()
 			const url = submission.url
 			const currentDateTime = new Date(Date.now())
 
 			if (!title.includes('[LF]')) {
 				let numbers = title.match(/\d+/g)
-				if ((title.includes('nook') || title.includes('twin')) && numbers) {
+				if (
+					(title.includes('nook') ||
+						title.includes('twin') ||
+						title.includes('tim') ||
+						title.includes('tom') ||
+						title.includes('boi') ||
+						title.includes('boy')) &&
+					numbers
+				) {
 					numbers = numbers.map(Number)
 					const mostLikelyPrice = Math.max(...numbers)
 
@@ -225,7 +235,7 @@ const startMonitor = (dbConnection) => {
 					}
 				}
 			}
-		})
+		}
 	}, 5000)
 }
 
@@ -292,6 +302,7 @@ const sendAllSubmissions = async (res, dbConnection, tableName) => {
 	rethinkdb
 		.table(tableName)
 		.orderBy({ index: rethinkdb.desc('datetime') })
+		.limit(10)
 		.run(dbConnection)
 		.then((cursor) => {
 			cursor.toArray().then((submissions) => {

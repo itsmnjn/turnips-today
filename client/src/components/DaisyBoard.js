@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react'
 
 import { apiURI, wsURI } from '../constants'
 
-const initializeSocket = (socketObj, tableName, data, setSubmissions) => {
+let data = null
+
+const initializeSocket = (socketObj, initialData, setSubmissions) => {
 	if (!socketObj.socket) {
 		socketObj.socket = new WebSocket(wsURI)
 
@@ -18,9 +20,16 @@ const initializeSocket = (socketObj, tableName, data, setSubmissions) => {
 
 			console.log('received message:', jsonConverted)
 
-			if (messageType === tableName) {
+			if (messageType === 'daisy') {
+				if (!data) {
+					data = initialData
+				}
+
 				console.log('setting submissions')
-				setSubmissions([message, ...data])
+				const newData = [message, ...data]
+				newData.pop()
+				setSubmissions(newData)
+				data = newData
 			}
 		})
 
@@ -42,24 +51,18 @@ const initializeSocket = (socketObj, tableName, data, setSubmissions) => {
 	}
 }
 
-const PriceBoard = (props) => {
+const DaisyBoard = (props) => {
 	const [submissions, setSubmissions] = useState([])
 	let socketObj = { socket: null }
 
 	useEffect(() => {
-		fetch(apiURI + `${props.tableName}Prices`)
+		fetch(`${apiURI}daisyPrices`)
 			.then((response) => {
 				return response.json()
 			})
-			.then((data) => {
-				setSubmissions(data)
-
-				let tempChartData = []
-				data.forEach((submission) => {
-					tempChartData.unshift(submission)
-				})
-
-				initializeSocket(socketObj, props.tableName, data, setSubmissions)
+			.then((initialData) => {
+				setSubmissions(initialData)
+				initializeSocket(socketObj, initialData, setSubmissions)
 			})
 	}, [])
 
@@ -77,4 +80,4 @@ const PriceBoard = (props) => {
 	)
 }
 
-export default PriceBoard
+export default DaisyBoard
