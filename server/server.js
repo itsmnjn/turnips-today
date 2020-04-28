@@ -19,6 +19,8 @@ rethinkdb
 		port: 28015,
 	})
 	.then((dbConnection) => {
+		// setTimeout so that monitor is guaranteed to start after
+		// // database initialization
 		setTimeout(() => {
 			api.initDatabase(dbConnection)
 		}, 100)

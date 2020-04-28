@@ -4,6 +4,7 @@ import { apiURI, wsURI } from '../constants'
 
 let data = null
 
+// manage socket connections so that unexpected closes/errors are handled
 const initializeSocket = (socketObj, initialData, setSubmissions) => {
 	if (!socketObj.socket) {
 		socketObj.socket = new WebSocket(wsURI)
@@ -55,6 +56,7 @@ const NookBoard = (props) => {
 	const [submissions, setSubmissions] = useState([])
 	let socketObj = { socket: null }
 
+	// fetch initial data to populate board
 	useEffect(() => {
 		fetch(`${apiURI}nookPrices`)
 			.then((response) => {

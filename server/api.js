@@ -14,6 +14,9 @@ const reddit = new snoowrap({
 let monitor = null
 let wssGlobal = null
 
+// starts up database, populates with initial value if empty,
+// sets up callback function to run when changes are made to nookPrices and daisyPrices,
+// creates datetime index for orderBy to be possible in monitor function
 const initDatabase = async (dbConnection) => {
 	console.log('Initializing database...')
 
@@ -37,21 +40,11 @@ const initDatabase = async (dbConnection) => {
 		.then((result) => {
 			rethinkdb
 				.table('nookPrices')
-				.insert(initialPriceObj)
-				.run(dbConnection)
-				.then((result) => {
-					console.log(result)
-				})
-				.catch((err) => {
-					throw err
-				})
-
-			rethinkdb
-				.table('nookPrices')
 				.indexCreate('datetime')
 				.run(dbConnection)
 				.catch(console.log)
 
+			// set up callback function to run upon every table change
 			rethinkdb
 				.table('nookPrices')
 				.changes()
@@ -68,6 +61,8 @@ const initDatabase = async (dbConnection) => {
 		})
 		.catch(async (err) => {
 			console.log('nookPrices already exists!')
+
+			// set up callback function to run upon every table change
 			rethinkdb
 				.table('nookPrices')
 				.changes()
@@ -89,21 +84,11 @@ const initDatabase = async (dbConnection) => {
 		.then((result) => {
 			rethinkdb
 				.table('daisyPrices')
-				.insert(initialPriceObj)
-				.run(dbConnection)
-				.then((result) => {
-					console.log(result)
-				})
-				.catch((err) => {
-					throw err
-				})
-
-			rethinkdb
-				.table('daisyPrices')
 				.indexCreate('datetime')
 				.run(dbConnection)
 				.catch(console.log)
 
+			// set up callback function to run upon every table change
 			rethinkdb
 				.table('daisyPrices')
 				.changes()
@@ -120,6 +105,8 @@ const initDatabase = async (dbConnection) => {
 		})
 		.catch(async (err) => {
 			console.log('daisyPrices already exists!')
+
+			// set up callback function to run upon every table change
 			rethinkdb
 				.table('daisyPrices')
 				.changes()
@@ -147,6 +134,8 @@ const emptyDatabase = async (dbConnection) => {
 	}
 }
 
+// monitors /r/acturnips subreddit for new posts every
+// 5 seconds containing indiciative words for either nook or daisy prices
 const startMonitor = (dbConnection) => {
 	console.log('Monitoring /r/ACTurnips')
 	monitor = setInterval(async () => {
@@ -243,11 +232,14 @@ const endMonitor = () => {
 	if (monitor) clearInterval(monitor)
 }
 
+// function to be applied inside a callback belonging to a 'ws' object,
+// thus 'this' is used to reference that object
 function heartbeat() {
 	this.isAlive = true
 }
 
 const initWebSocketServer = () => {
+	// global wss needed for data transmission in other areas of API
 	wssGlobal = new websocket.Server({ port: 8081 })
 
 	wssGlobal.on('connection', (ws) => {
@@ -263,6 +255,7 @@ const initWebSocketServer = () => {
 		})
 	})
 
+	// ping WebSocket client every 30 seconds, terminate if not alive
 	const interval = setInterval(function ping() {
 		wssGlobal.clients.forEach((ws) => {
 			if (ws.isAlive === false) return ws.terminate()
@@ -277,6 +270,7 @@ const initWebSocketServer = () => {
 	})
 }
 
+// update function, runs when new submission is entered into database
 const updateClientNewPrice = (err, row, tableName, dbConnection) => {
 	if (err) throw err
 
@@ -297,6 +291,7 @@ const updateClientNewPrice = (err, row, tableName, dbConnection) => {
 	sendPush(newSubmission, tableName, dbConnection)
 }
 
+// sends up to 10 submissions to HTTP client
 const sendAllSubmissions = async (res, dbConnection, tableName) => {
 	console.log(`Sending all ${tableName} submissions`)
 	rethinkdb
@@ -448,6 +443,7 @@ const sendPush = (submission, tableName, dbConnection) => {
 
 	dataToSend.message = 'Click me to go to the post.'
 
+	// for all subscriptions in database, send a push notification
 	getSubscriptionsFromDatabase(dbConnection)
 		.then((subscriptions) => {
 			let promiseChain = Promise.resolve()

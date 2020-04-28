@@ -4,6 +4,7 @@ import { apiURI, wsURI } from '../constants'
 
 let data = null
 
+// manage socket connections so that unexpected closes/errors are handled
 const initializeSocket = (socketObj, initialData, setSubmissions) => {
 	if (!socketObj.socket) {
 		socketObj.socket = new WebSocket(wsURI)
