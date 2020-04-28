@@ -1,29 +1,52 @@
 import React, { useState, useEffect } from 'react'
-import { LineChart, Line, YAxis, Tooltip } from 'recharts'
 
-import { apiURI } from '../constants'
+import { apiURI, wsURI } from '../constants'
 
-const CustomTooltip = ({ payload, label, active }) => {
-	if (active && payload) {
-		const datetimeString = payload[0].payload.datetime
-		const datetime = new Date(Date.parse(datetimeString))
-		return (
-			<div className="custom-tooltip">
-				<p className="label">{`price: ${payload[0].value}`}</p>
-				<p className="desc">{datetime.toLocaleString()}</p>
-			</div>
-		)
+const initializeSocket = (socketObj, tableName, data, setSubmissions) => {
+	if (!socketObj.socket) {
+		socketObj.socket = new WebSocket(wsURI)
+
+		socketObj.socket.addEventListener('open', (event) => {
+			console.log('Socket opened')
+			socketObj.socket.send('hi from client')
+		})
+
+		socketObj.socket.addEventListener('message', (event) => {
+			const jsonConverted = JSON.parse(event.data)
+			const messageType = jsonConverted[0]
+			const message = jsonConverted[1]
+
+			console.log('received message:', jsonConverted)
+
+			if (messageType === tableName) {
+				console.log('setting submissions')
+				setSubmissions([message, ...data])
+			}
+		})
+
+		socketObj.socket.addEventListener('close', (event) => {
+			console.log('Socket closed, reopening')
+			socketObj.socket = null
+			setTimeout(() => {
+				initializeSocket(socketObj)
+			}, 2500)
+		})
+
+		socketObj.socket.addEventListener('error', (event) => {
+			console.log('Socket closed because of error, reopening')
+			socketObj.socket = null
+			setTimeout(() => {
+				initializeSocket(socketObj)
+			}, 2500)
+		})
 	}
-
-	return null
 }
 
 const PriceBoard = (props) => {
 	const [submissions, setSubmissions] = useState([])
-	const [chartData, setChartData] = useState([])
-	const socket = props.socket
+	let socketObj = { socket: null }
 
-	useEffect(function() {
+	useEffect(() => {
 		fetch(apiURI + `${props.tableName}Prices`)
 			.then((response) => {
 				return response.json()
@@ -36,33 +59,12 @@ const PriceBoard = (props) => {
 					tempChartData.unshift(submission)
 				})
 
-				setChartData(tempChartData)
-
-				socket.addEventListener('message', (event) => {
-					const jsonConverted = JSON.parse(event.data)
-					const messageType = jsonConverted[0]
-					const message = jsonConverted[1]
-
-					console.log('received message: ', jsonConverted)
-
-					if (messageType === 'message') {
-						console.log(message)
-					} else if (messageType === props.tableName) {
-						console.log('setting submissions')
-						setSubmissions([message, ...data])
-						setChartData([...tempChartData, message])
-					}
-				})
+				initializeSocket(socketObj, props.tableName, data, setSubmissions)
 			})
 	}, [])
 
 	return (
 		<div>
-			<LineChart width={600} height={300} data={chartData}>
-				<Line strokeWidth={2} type="linear" dataKey="price" stroke="#202020" />
-				<YAxis stroke="#303030" />
-				<Tooltip content={<CustomTooltip />} />
-			</LineChart>
 			<ul>
 				{submissions.map((submission) => (
 					<li key={submission.url}>
