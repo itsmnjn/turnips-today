@@ -12,7 +12,7 @@ const reddit = new snoowrap({
 })
 
 let monitor = null
-let wsGlobal = null
+let wssGlobal = null
 
 const initDatabase = async (dbConnection) => {
 	console.log('Initializing database...')
@@ -150,102 +150,120 @@ const emptyDatabase = async (dbConnection) => {
 const startMonitor = (dbConnection) => {
 	console.log('Monitoring /r/ACTurnips')
 	monitor = setInterval(async () => {
-		const listing = await reddit.getSubreddit('acturnips').getNew()
+		const newListing = await reddit.getSubreddit('acturnips').getNew()
 
-		const title = listing[0].title.toLowerCase()
-		const url = listing[0].url
-		const currentDateTime = new Date(Date.now())
+		newListing.forEach((submission) => {
+			const title = submission.title.toLowerCase()
+			const url = submission.url
+			const currentDateTime = new Date(Date.now())
 
-		if (!title.includes('[LF]')) {
-			let numbers = title.match(/\d+/g)
-			if ((title.includes('nook') || title.includes('twin')) && numbers) {
-				numbers = numbers.map(Number)
-				const mostLikelyPrice = Math.max(...numbers)
+			if (!title.includes('[LF]')) {
+				let numbers = title.match(/\d+/g)
+				if ((title.includes('nook') || title.includes('twin')) && numbers) {
+					numbers = numbers.map(Number)
+					const mostLikelyPrice = Math.max(...numbers)
 
-				if (mostLikelyPrice > 100) {
-					const newDocument = {
-						title,
-						url,
-						price: mostLikelyPrice,
-						datetime: currentDateTime,
+					if (mostLikelyPrice > 100) {
+						const newDocument = {
+							title,
+							url,
+							price: mostLikelyPrice,
+							datetime: currentDateTime,
+						}
+
+						rethinkdb
+							.table('nookPrices')
+							.get(url)
+							.run(dbConnection)
+							.then((result) => {
+								if (!result) {
+									rethinkdb
+										.table('nookPrices')
+										.insert(newDocument)
+										.run(dbConnection, (err, result) => {
+											if (err) throw err
+											console.log(
+												'Inserted new document into nookPrices',
+												newDocument.url
+											)
+										})
+								}
+							})
+							.catch(console.log)
 					}
+				} else if (title.includes('dais') && numbers) {
+					const numbers = title.match(/\d+/g).map(Number)
+					const mostLikelyPrice = Math.max(...numbers)
 
-					rethinkdb
-						.table('nookPrices')
-						.get(url)
-						.run(dbConnection)
-						.then((result) => {
-							if (!result) {
-								rethinkdb
-									.table('nookPrices')
-									.insert(newDocument)
-									.run(dbConnection, (err, result) => {
-										if (err) throw err
-										console.log(
-											'Inserted new document into nookPrices',
-											newDocument.url
-										)
-									})
-							}
-						})
-						.catch(console.log)
-				}
-			} else if (title.includes('dais') && numbers) {
-				const numbers = title.match(/\d+/g).map(Number)
-				const mostLikelyPrice = Math.max(...numbers)
+					if (mostLikelyPrice < 150) {
+						const newDocument = {
+							title,
+							url,
+							price: mostLikelyPrice,
+							datetime: currentDateTime,
+						}
 
-				if (mostLikelyPrice > 100) {
-					const newDocument = {
-						title,
-						url,
-						price: mostLikelyPrice,
-						datetime: currentDateTime,
+						rethinkdb
+							.table('daisyPrices')
+							.get(url)
+							.run(dbConnection)
+							.then((result) => {
+								if (!result) {
+									rethinkdb
+										.table('daisyPrices')
+										.insert(newDocument)
+										.run(dbConnection, (err, result) => {
+											if (err) throw err
+											console.log(
+												'Inserted new document into daisyPrices',
+												newDocument.url
+											)
+										})
+								}
+							})
+							.catch(console.log)
 					}
-
-					rethinkdb
-						.table('daisyPrices')
-						.get(url)
-						.run(dbConnection)
-						.then((result) => {
-							if (!result) {
-								rethinkdb
-									.table('daisyPrices')
-									.insert(newDocument)
-									.run(dbConnection, (err, result) => {
-										if (err) throw err
-										console.log(
-											'Inserted new document into daisyPrices',
-											newDocument.url
-										)
-									})
-							}
-						})
-						.catch(console.log)
 				}
 			}
-		}
-	}, 1000)
+		})
+	}, 5000)
 }
 
 const endMonitor = () => {
 	if (monitor) clearInterval(monitor)
 }
 
+function heartbeat() {
+	this.isAlive = true
+}
+
 const initWebSocketServer = () => {
-	const wss = new websocket.Server({ port: 8081 })
-	wss.on('connection', (ws) => {
-		wsGlobal = ws
+	wssGlobal = new websocket.Server({ port: 8081 })
 
-		wsGlobal.send(JSON.stringify(['message', 'hi from server!']))
-
-		// setInterval(() => {
-		// 	console.log('sending hi again')
-		// 	wsGlobal.send(JSON.stringify(['message', 'hi AGAIN from server!']))
-		// }, 5000)
-
-		wsGlobal.on('message', (message) => {
-			console.log(`Received: ${message}`)
+	wssGlobal.on('connection', (ws) => {
+		ws.isAlive = true
+		ws.on('pong', heartbeat)
+		ws.on('message', (message) => {
+			console.log('Received:', message)
+			console.log('Sending WS hello message to client')
+			ws.send(JSON.stringify(['message', 'hello from server']))
 		})
+		ws.on('close', () => {
+			console.log('Client closed')
+		})
+	})
+
+	const interval = setInterval(function ping() {
+		wssGlobal.clients.forEach((ws) => {
+			if (ws.isAlive === false) return ws.terminate()
+
+			ws.isAlive = false
+			ws.ping(() => {})
+		})
+	}, 30000)
+
+	wssGlobal.on('close', function close() {
+		clearInterval(interval)
 	})
 }
 
@@ -254,9 +272,13 @@ const updateClientNewPrice = (err, row, tableName, dbConnection) => {
 
 	const newSubmission = row.new_val
 
-	if (wsGlobal) {
+	if (wssGlobal) {
 		console.log('Sending new submission')
-		wsGlobal.send(JSON.stringify([tableName, newSubmission]))
+		wssGlobal.clients.forEach((client) => {
+			if (client.readyState === websocket.OPEN) {
+				client.send(JSON.stringify([tableName, newSubmission]))
+			}
+		})
 	} else {
 		console.log('WebSocket connection not established.')
 	}
@@ -422,6 +444,7 @@ const sendPush = (submission, tableName, dbConnection) => {
 			console.log('Starting subscriptions chain')
 			for (let i = 0; i < subscriptions.length; i++) {
 				const subscription = subscriptions[i]
+				console.log('Sending to enpoint: ', subscription.endpoint)
 				promiseChain = promiseChain.then(() => {
 					return triggerPushMsg(
 						subscription,
