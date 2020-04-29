@@ -297,7 +297,7 @@ const sendAllSubmissions = async (res, dbConnection, tableName) => {
 	rethinkdb
 		.table(tableName)
 		.orderBy({ index: rethinkdb.desc('datetime') })
-		.limit(10)
+		.limit(6)
 		.run(dbConnection)
 		.then((cursor) => {
 			cursor.toArray().then((submissions) => {
