@@ -1,0 +1,28 @@
+version: '3'
+services:
+  rethinkdb:
+    image: rethinkdb:2.4.0
+    ports:
+      - '28015'
+    volumes:
+      - ./server/rethinkdb_data:/data
+    command: rethinkdb --bind all -d /data
+    restart: always
+
+  server:
+    build: ./server
+    depends_on:
+      - rethinkdb
+    ports:
+      - '8000:8000'
+      - '8081:8081'
+    restart: always
+
+  client:
+    build: ./client
+    depends_on:
+      - server
+    ports:
+      - '3000:80'
+    restart: always
+    tty: true
