@@ -19,6 +19,7 @@ self.addEventListener('push', (event) => {
 		self.registration.showNotification(data.title, {
 			body: data.message,
 			data: data.url,
+			image: 'bellbag.png',
 		})
 	)
 })
@@ -46,7 +47,7 @@ self.addEventListener('pushsubscriptionchange', (event) => {
 		self.registration.pushManager
 			.subscribe(subscribeOptions)
 			.then((subscription) => {
-				console.log('Pulling old subscription', subscription.endpoint)
+				console.log('Pulling old subscription', event.oldSubscription.endpoint)
 
 				const primaryKey = window.localStorage.getItem('primaryKey')
 
@@ -71,7 +72,7 @@ self.addEventListener('pushsubscriptionchange', (event) => {
 					headers: {
 						'Content-Type': 'application/json',
 					},
-					body: JSON.stringify(subscription),
+					body: JSON.stringify(event.newSubscription),
 				})
 					.then((response) => {
 						if (!response.ok) {
