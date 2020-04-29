@@ -436,9 +436,9 @@ const sendPush = (submission, tableName, dbConnection) => {
 	}
 
 	if (tableName === 'nook') {
-		dataToSend.title = `New price of ${submission.price} bells from the Nook twins!`
+		dataToSend.title = `${submission.price} bells from the Nook twins!`
 	} else {
-		dataToSend.title = `New price of ${submission.price} bells from Daisy!`
+		dataToSend.title = `${submission.price} bells from Daisy!`
 	}
 
 	dataToSend.message = 'Click me to go to the post.'

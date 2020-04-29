@@ -11,7 +11,6 @@ const initializeSocket = (socketObj, initialData, setSubmissions) => {
 		socketObj.socket = new WebSocket(wsURI)
 
 		socketObj.socket.addEventListener('open', (event) => {
-			console.log('Socket opened')
 			socketObj.socket.send('hi from client')
 		})
 
@@ -20,25 +19,25 @@ const initializeSocket = (socketObj, initialData, setSubmissions) => {
 			const messageType = jsonConverted[0]
 			const message = jsonConverted[1]
 
-			console.log('received message:', jsonConverted)
-
 			if (messageType === 'nook') {
 				if (!data) {
 					data = initialData
 				}
 
-				console.log('setting submissions')
 				const newData = [message, ...data]
 				if (newData.length > 6) {
 					newData.pop()
 				}
-				setSubmissions(newData)
+				try {
+					setSubmissions(newData)
+				} catch (err) {
+					window.location.reload()
+				}
 				data = newData
 			}
 		})
 
 		socketObj.socket.addEventListener('close', (event) => {
-			console.log('Socket closed, reopening')
 			socketObj.socket = null
 			setTimeout(() => {
 				initializeSocket(socketObj)
@@ -46,7 +45,6 @@ const initializeSocket = (socketObj, initialData, setSubmissions) => {
 		})
 
 		socketObj.socket.addEventListener('error', (event) => {
-			console.log('Socket closed because of error, reopening')
 			socketObj.socket = null
 			setTimeout(() => {
 				initializeSocket(socketObj)
