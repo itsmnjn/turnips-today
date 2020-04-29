@@ -1,2 +1,2 @@
-export const apiURI = 'https://d1adow0cntewks.cloudfront.net:8000/'
-export const wsURI = 'ws://d1adow0cntewks.cloudfront.net:8081/'
+export const apiURI = 'http://ec2-18-212-53-33.compute-1.amazonaws.com:8000/'
+export const wsURI = 'ws://ec2-18-212-53-33.compute-1.amazonaws.com:8081/'
