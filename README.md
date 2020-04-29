@@ -1,5 +1,10 @@
 # TurnipsToday
 
-Tracks incoming posts to the /r/ACTurnips subreddit and displays them in a nice dashboard and chart format. Also notifies significant prices to users who opt-in to browser notifications.
+Tracks incoming posts to the /r/ACTurnips subreddit. Automatically displays and notifies subscribers in real time.
 
-Built using React and Express.
+Technologies used:
+* React.js for the front-end client
+* Express.js on Node.js for the back-end server
+* WebSockets for real time client-server bi-directional communication
+* RethinkDB for the database
+* Web Push API for browser notifications
