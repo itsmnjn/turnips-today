@@ -104,9 +104,57 @@ const App = () => {
 		window.localStorage.getItem('isSubscribed') === 'true' ? true : false
 	)
 
+	// disable button if browser does not support push notifications
 	return (
-		<div>
-			{'serviceWorker' in navigator && 'PushManager' in window ? (
+		<div className="container">
+			<h1 className="header-text">Turnips.Today</h1>
+			<h3 className="header-text">Quickly get to those turnips, today!</h3>
+			<h4 className="header-text">
+				This site monitors{' '}
+				<a
+					href="https://reddit.com/r/acturnips"
+					target="_blank"
+					rel="noopener noreferrer"
+				>
+					/r/ACTurnips
+				</a>{' '}
+				and updates upon every new, valid price submission, holding the six most
+				recent.
+			</h4>
+			{!('serviceWorker' in navigator && 'PushManager' in window) ? (
+				<h4 className="header-text">
+					Unfortunately, your browser does not support push notifications.
+				</h4>
+			) : (
+				<h4 className="header-text">
+					Press the button below for push notifications (requires Chrome on
+					Android or PC/Mac/Linux)
+				</h4>
+			)}
+			{!('serviceWorker' in navigator && 'PushManager' in window) ? (
+				<button
+					className="disabled-button"
+					type="button"
+					onClick={() => {
+						if (!isSubscribed) {
+							subscribeUserToPush(setIsSubscribed)
+						} else {
+							unsubscribeUserToPush(setIsSubscribed)
+						}
+					}}
+					disabled={
+						!('serviceWorker' in navigator && 'PushManager' in window)
+							? true
+							: false
+					}
+				>
+					{!isSubscribed ? (
+						<h4 className="button-text">Subscribe</h4>
+					) : (
+						<h4 className="button-text">Unsubscribe</h4>
+					)}
+				</button>
+			) : (
 				<button
 					type="button"
 					onClick={() => {
@@ -116,17 +164,35 @@ const App = () => {
 							unsubscribeUserToPush(setIsSubscribed)
 						}
 					}}
+					disabled={
+						!('serviceWorker' in navigator && 'PushManager' in window)
+							? true
+							: false
+					}
 				>
-					{!isSubscribed
-						? 'Turn on push notifications'
-						: 'Turn off push notifications'}
+					{!isSubscribed ? (
+						<h4 className="button-text">Subscribe</h4>
+					) : (
+						<h4 className="button-text">Unsubscribe</h4>
+					)}
 				</button>
-			) : null}
-			<h1>TurnipsToday</h1>
-			<h2>Nook Prices</h2>
-			<NookBoard />
-			<h2>Daisy Prices</h2>
-			<DaisyBoard />
+			)}
+			<div className="board-container">
+				<h2>From the Nook twins</h2>
+				<NookBoard />
+				<h2>From Daisy</h2>
+				<DaisyBoard />
+			</div>
+			<p className="footnote">
+				Made with{' '}
+				<span role="img" aria-label="heart">
+					❤️
+				</span>{' '}
+				by{' '}
+				<a href="https://mnjn.me" target="_blank" rel="noopener noreferrer">
+					@mnjn
+				</a>
+			</p>
 		</div>
 	)
 }
