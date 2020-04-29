@@ -13,9 +13,12 @@ const api = require('./api')
 server.use(cors())
 server.use(bodyParser.json())
 
+const hostname =
+	process.env.NODE_ENV === 'production' ? 'rethinkdb' : 'localhost'
+
 rethinkdb
 	.connect({
-		host: 'localhost',
+		host: hostname,
 		port: 28015,
 	})
 	.then((dbConnection) => {
