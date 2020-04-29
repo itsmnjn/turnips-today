@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 
 import { apiURI, wsURI } from '../constants'
+import Price from './Price'
 
 let data = null
 
@@ -28,7 +29,9 @@ const initializeSocket = (socketObj, initialData, setSubmissions) => {
 
 				console.log('setting submissions')
 				const newData = [message, ...data]
-				newData.pop()
+				if (newData.length > 6) {
+					newData.pop()
+				}
 				setSubmissions(newData)
 				data = newData
 			}
@@ -69,17 +72,14 @@ const NookBoard = (props) => {
 	}, [])
 
 	return (
-		<div>
-			<ul>
-				{submissions.map((submission) => (
-					<li key={submission.url}>
-						{submission.title} - {submission.price} -{' '}
-						<a target="_blank" rel="noopener noreferrer" href={submission.url}>
-							URL
-						</a>
-					</li>
-				))}
-			</ul>
+		<div className="board">
+			{submissions.map((submission) => (
+				<Price
+					price={submission.price}
+					key={submission.url}
+					url={submission.url}
+				/>
+			))}
 		</div>
 	)
 }
