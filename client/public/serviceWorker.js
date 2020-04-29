@@ -19,7 +19,7 @@ self.addEventListener('push', (event) => {
 		self.registration.showNotification(data.title, {
 			body: data.message,
 			data: data.url,
-			image: 'bellbag.png',
+			icon: 'bellbag.png',
 		})
 	)
 })
