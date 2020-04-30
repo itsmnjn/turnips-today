@@ -176,6 +176,31 @@ const startMonitor = (dbConnection) => {
 							.run(dbConnection)
 							.then((result) => {
 								if (!result) {
+									// check the amount of documents in the table
+									rethinkdb
+										.table('nookPrices')
+										.count()
+										.run(dbConnection)
+										.then((count) => {
+											if (count > 128) {
+												// delete the oldest document
+												return rethinkdb
+													.table('nookPrices')
+													.orderBy({ index: 'datetime' })
+													.run(dbConnection)
+													.then((cursor) => {
+														cursor.toArray().then((submissions) => {
+															return rethinkdb
+																.table('nookPrices')
+																.get(submissions[0].url)
+																.delete()
+																.run(dbConnection)
+														})
+													})
+											}
+										})
+										.catch(console.log)
+
 									rethinkdb
 										.table('nookPrices')
 										.insert(newDocument)
@@ -208,6 +233,31 @@ const startMonitor = (dbConnection) => {
 							.run(dbConnection)
 							.then((result) => {
 								if (!result) {
+									// check the amount of documents in the table
+									rethinkdb
+										.table('daisyPrices')
+										.count()
+										.run(dbConnection)
+										.then((count) => {
+											if (count > 128) {
+												// delete the oldest document
+												return rethinkdb
+													.table('daisyPrices')
+													.orderBy({ index: 'datetime' })
+													.run(dbConnection)
+													.then((cursor) => {
+														cursor.toArray().then((submissions) => {
+															return rethinkdb
+																.table('daisyPrices')
+																.get(submissions[0].url)
+																.delete()
+																.run(dbConnection)
+														})
+													})
+											}
+										})
+										.catch(console.log)
+
 									rethinkdb
 										.table('daisyPrices')
 										.insert(newDocument)
