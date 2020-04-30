@@ -26,3 +26,5 @@ yarn-error.log*
 
 rethinkdb_data
 design/
+
+ssh-ec2.sh
