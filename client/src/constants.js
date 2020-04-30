@@ -1,2 +1,2 @@
-export const apiURI = 'http://localhost:8000/'
-export const wsURI = 'ws://localhost:8081/'
+export const apiURI = 'https://api.turnips.today/'
+export const wsURI = 'wss://ws.turnips.today/'

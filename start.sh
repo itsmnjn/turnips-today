@@ -1,1 +1,1 @@
-rm -rf server/rethinkdb_data; docker-compose down; docker-compose up --build
+sudo rm -rf server/rethinkdb_data; sudo docker-compose down; sudo docker-compose up --build
