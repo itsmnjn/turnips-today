@@ -1,6 +1,6 @@
 # TurnipsToday
 
-Tracks incoming posts to the /r/ACTurnips subreddit. Automatically displays and notifies subscribers in real time.
+Check it out [here](https://turnips.today)! Tracks incoming posts to the /r/ACTurnips subreddit. Automatically displays and notifies subscribers in real time.
 
 ## Technologies
 
